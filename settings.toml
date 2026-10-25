@@ -4,7 +4,5 @@ encryption = "RSA512"
 [friends]
 
 [friends.one]
-ip = "1.1.1.1"
+ip = "127.0.0.1"
 
-[friends.two]
-ip = "1.0.0.1"

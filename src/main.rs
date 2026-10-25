@@ -22,3 +22,4 @@ async fn main() {
     // Then we should listen for incoming connections ourself, for the client state machine
     let _ = peers::listen(settings).await;
 }
+

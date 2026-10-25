@@ -4,12 +4,12 @@ use std::net::IpAddr;
 
 #[derive(Deserialize, Debug)]
 pub struct Settings {
-    listen: u32,
-    encryption: String,
-    friends: HashMap<String, Friend>,
+    pub listen: u32,
+    pub encryption: String,
+    pub friends: HashMap<String, Friend>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Friend {
-    ip: IpAddr,
+    pub ip: IpAddr,
 }

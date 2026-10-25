@@ -7,18 +7,6 @@
 // - Both sides send `Hello { node }` on connect. Nobody is client/server.
 // - Either side may propose from `Idle`.
 
-// This can be used as below:
-// let friend = Friend::new(1, 2, Message::Hello { node: 2 }) // Idle by default
-// let is_negotiating = Friend::<Negotiating>::from(friend);
-// let is_transferring = Friend::<Transferring>::from(is_negotiating);
-// let is_closed = Friend::<Close>::from(is_transferring);
-//
-// or
-//
-// let friend = Friend::new(1, 2, Message::Hello { node: 2 }) // Idle by default
-// let is_negotiating = Friend::<Negotiating>::from(friend);
-// let is_closed = Friend::<Close>::from(is_negotiating);
-
 use std::{ops::Neg, sync::WaitTimeoutResult};
 
 use serde::{Deserialize, Serialize};
@@ -81,36 +69,33 @@ impl Friend {
 
     // Idle -> Negotiating -> (Transferring ->) Close -> Idle
     pub fn step(&mut self, msg: Message) -> Result<(), ProtocolError> {
-        use Message as M;
-        use State as S;
-
-        let current = std::mem::replace(&mut self.state, S::Close);
+        let current = std::mem::replace(&mut self.state, State::Close);
 
         self.state = match (current, msg) {
-            (S::Idle, M::Hello { node }) => {
+            (State::Idle, Message::Hello { node }) => {
                 self.them = Some(node);
-                S::Negotiating { pending: None, chunk_size: DEFAULT_CHUNK_SIZE }
+                State::Negotiating { pending: None, chunk_size: DEFAULT_CHUNK_SIZE }
             }
 
-            (S::Negotiating { chunk_size, .. }, M::Propose { proposal }) => {
-                S::Negotiating { pending: Some(proposal), chunk_size }
+            (State::Negotiating { chunk_size, .. }, Message::Propose { proposal }) => {
+                State::Negotiating { pending: Some(proposal), chunk_size }
             }
 
-            (S::Negotiating { pending: Some(Proposal::Transfer { dir }), chunk_size }, M::Accept) => {
-                S::Transferring { dir, chunk_size }
+            (State::Negotiating { pending: Some(Proposal::Transfer { dir }), chunk_size }, Message::Accept) => {
+                State::Transferring { dir, chunk_size }
             }
 
-            (S::Negotiating { pending: Some(Proposal::ChunkSize(n)), .. }, M::Accept) => {
-                S::Negotiating { pending: None, chunk_size: n }
+            (State::Negotiating { pending: Some(Proposal::ChunkSize(n)), .. }, Message::Accept) => {
+                State::Negotiating { pending: None, chunk_size: n }
             }
 
-            (S::Negotiating { .. }, M::Reject | M::Fail | M::Bye) => S::Close,
+            (State::Negotiating { .. }, Message::Reject | Message::Fail | Message::Bye) => State::Close,
 
-            (S::Transferring { .. }, M::Done | M::Fail) => S::Close,
+            (State::Transferring { .. }, Message::Done | Message::Fail) => State::Close,
 
-            (S::Close, M::Bye) => {
+            (State::Close, Message::Bye) => {
                 self.them = None;
-                S::Idle
+                State::Idle
             }
 
             (state, msg) => {
