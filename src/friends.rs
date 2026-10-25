@@ -7,7 +7,9 @@
 // - Both sides send `Hello { node }` on connect. Nobody is client/server.
 // - Either side may propose from `Idle`.
 
-use serde::{Serialize, Deserialize};
+use std::{ops::Neg, sync::WaitTimeoutResult};
+
+use serde::{Deserialize, Serialize};
 
 pub type NodeID = [u8; 32];
 
@@ -23,7 +25,7 @@ enum Proposal {
 
 enum Message {
     Hello { node: NodeID },
-    Propose,
+    Propose { propsal: Proposal },
     Accept,
     Reject,
     Done,
@@ -31,26 +33,101 @@ enum Message {
     Bye,
 }
 
-enum State {
-    Idle,
-    Negotiating,
-    Transfering,
-    Close,
-}
-
-pub struct Friend {
+pub struct Friend<S> {
     me: NodeID,
     them: Option<NodeID>,
-    state: State,
+    state: S,
 }
 
-impl Friend {
-    pub fn new() {
+// 'From' Trait implemented to enforce state change direction at compile time, currently just preserves the entire message between state changes, making no changes.
+// Currently enforced as follows:
+//
+// Idle -> Negotiating -> Close -> Idle
+//              or
+// Idle -> Negotiating -> Transferring -> Close -> Idle
+//
+// ToDo: Implement message changes between states.
 
-    }
+struct Idle {
+    message: Message,
+}
 
-    pub fn step() {
-
+impl Idle {
+    pub fn new(start_message: Message) -> Self {
+        Idle {
+            message: start_message,
+        }
     }
 }
 
+struct Negotiating {
+    message: Message,
+}
+
+impl From<Friend<Idle>> for Friend<Negotiating> {
+    fn from(val: Friend<Idle>) -> Friend<Negotiating> {
+        Friend {
+            me: val.me,
+            them: val.them,
+            state: Negotiating {
+                message: val.state.message,
+            },
+        }
+    }
+}
+
+impl From<Friend<Negotiating>> for Friend<Close> {
+    fn from(val: Friend<Negotiating>) -> Friend<Close> {
+        Friend {
+            me: val.me,
+            them: val.them,
+            state: Close {
+                message: val.state.message,
+            },
+        }
+    }
+}
+
+struct Transferring {
+    message: Message,
+}
+
+impl From<Friend<Negotiating>> for Friend<Transferring> {
+    fn from(val: Friend<Negotiating>) -> Friend<Transferring> {
+        Friend {
+            me: val.me,
+            them: val.them,
+            state: Transferring {
+                message: val.state.message,
+            },
+        }
+    }
+}
+
+struct Close {
+    message: Message,
+}
+
+impl From<Friend<Transferring>> for Friend<Close> {
+    fn from(val: Friend<Transferring>) -> Friend<Close> {
+        Friend {
+            me: val.me,
+            them: val.them,
+            state: Close {
+                message: val.state.message,
+            },
+        }
+    }
+}
+
+impl From<Friend<Close>> for Friend<Idle> {
+    fn from(val: Friend<Close>) -> Friend<Idle> {
+        Friend {
+            me: val.me,
+            them: val.them,
+            state: Idle {
+                message: val.state.message,
+            },
+        }
+    }
+}
