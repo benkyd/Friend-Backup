@@ -23,21 +23,27 @@ use std::{ops::Neg, sync::WaitTimeoutResult};
 
 use serde::{Deserialize, Serialize};
 
+const DEFAULT_CHUNK_SIZE: u32 = 64 * 1024;
+
 pub type NodeID = [u8; 32];
 
-enum Direction {
+
+#[derive(Debug, Clone, Copy)]
+pub enum Direction {
     Inbound,
     Outbound,
 }
 
-enum Proposal {
+#[derive(Debug)]
+pub enum Proposal {
     Transfer { dir: Direction },
     ChunkSize(u32),
 }
 
-enum Message {
+#[derive(Debug)]
+pub enum Message {
     Hello { node: NodeID },
-    Propose { propsal: Proposal },
+    Propose { proposal: Proposal },
     Accept,
     Reject,
     Done,
@@ -45,111 +51,75 @@ enum Message {
     Bye,
 }
 
-pub struct Friend<S> {
+#[derive(Debug)]
+pub enum State {
+    Idle,
+    Negotiating { pending: Option<Proposal>, chunk_size: u32 },
+    Transferring { dir: Direction, chunk_size: u32 },
+    Close,
+}
+
+#[derive(Debug)]
+pub enum ProtocolError {
+    Unexpected(Message),
+}
+
+pub struct Friend {
     me: NodeID,
     them: Option<NodeID>,
-    state: S,
+    state: State,
 }
 
-// 'From' Trait implemented to enforce state change direction at compile time, currently just preserves the entire message between state changes, making no changes.
-// Currently enforced as follows:
-//
-// Idle -> Negotiating -> Close -> Idle
-//              or
-// Idle -> Negotiating -> Transferring -> Close -> Idle
-//
-// ToDo: Implement message changes between states.
+impl Friend {
+    pub fn new(me: NodeID) -> Self {
+        Friend { me, them: None, state: State::Idle }
+    }
 
-impl Friend<Idle> {
-    fn new(me: NodeID, them: Option<NodeID>, message: Message) -> Self {
-        Friend {
-            me,
-            them,
-            state: Idle::new(message),
-        }
+    pub fn state(&self) -> &State {
+        &self.state
+    }
+
+    // Idle -> Negotiating -> (Transferring ->) Close -> Idle
+    pub fn step(&mut self, msg: Message) -> Result<(), ProtocolError> {
+        use Message as M;
+        use State as S;
+
+        let current = std::mem::replace(&mut self.state, S::Close);
+
+        self.state = match (current, msg) {
+            (S::Idle, M::Hello { node }) => {
+                self.them = Some(node);
+                S::Negotiating { pending: None, chunk_size: DEFAULT_CHUNK_SIZE }
+            }
+
+            (S::Negotiating { chunk_size, .. }, M::Propose { proposal }) => {
+                S::Negotiating { pending: Some(proposal), chunk_size }
+            }
+
+            (S::Negotiating { pending: Some(Proposal::Transfer { dir }), chunk_size }, M::Accept) => {
+                S::Transferring { dir, chunk_size }
+            }
+
+            (S::Negotiating { pending: Some(Proposal::ChunkSize(n)), .. }, M::Accept) => {
+                S::Negotiating { pending: None, chunk_size: n }
+            }
+
+            (S::Negotiating { .. }, M::Reject | M::Fail | M::Bye) => S::Close,
+
+            (S::Transferring { .. }, M::Done | M::Fail) => S::Close,
+
+            (S::Close, M::Bye) => {
+                self.them = None;
+                S::Idle
+            }
+
+            (state, msg) => {
+                self.state = state;
+                return Err(ProtocolError::Unexpected(msg));
+            }
+        };
+
+        Ok(())
     }
 }
 
-struct Idle {
-    message: Message,
-}
-
-impl Idle {
-    pub fn new(start_message: Message) -> Self {
-        Idle {
-            message: start_message,
-        }
-    }
-}
-
-struct Negotiating {
-    message: Message,
-}
-
-impl From<Friend<Idle>> for Friend<Negotiating> {
-    fn from(val: Friend<Idle>) -> Friend<Negotiating> {
-        Friend {
-            me: val.me,
-            them: val.them,
-            state: Negotiating {
-                message: val.state.message,
-            },
-        }
-    }
-}
-
-impl From<Friend<Negotiating>> for Friend<Close> {
-    fn from(val: Friend<Negotiating>) -> Friend<Close> {
-        Friend {
-            me: val.me,
-            them: val.them,
-            state: Close {
-                message: val.state.message,
-            },
-        }
-    }
-}
-
-struct Transferring {
-    message: Message,
-}
-
-impl From<Friend<Negotiating>> for Friend<Transferring> {
-    fn from(val: Friend<Negotiating>) -> Friend<Transferring> {
-        Friend {
-            me: val.me,
-            them: val.them,
-            state: Transferring {
-                message: val.state.message,
-            },
-        }
-    }
-}
-
-struct Close {
-    message: Message,
-}
-
-impl From<Friend<Transferring>> for Friend<Close> {
-    fn from(val: Friend<Transferring>) -> Friend<Close> {
-        Friend {
-            me: val.me,
-            them: val.them,
-            state: Close {
-                message: val.state.message,
-            },
-        }
-    }
-}
-
-impl From<Friend<Close>> for Friend<Idle> {
-    fn from(val: Friend<Close>) -> Friend<Idle> {
-        Friend {
-            me: val.me,
-            them: val.them,
-            state: Idle {
-                message: val.state.message,
-            },
-        }
-    }
-}
