@@ -1,0 +1,11 @@
+[myself]
+listen = 9090
+encryption = "RSA512"
+
+[friends]
+
+[friend.one]
+ip = "1.1.1.1"
+
+[friend.two]
+ip = "1.0.0.1"
