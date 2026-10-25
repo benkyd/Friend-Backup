@@ -1,14 +1,29 @@
-use std::collections::HashMap;
 use config::Config;
+use serde::Deserialize;
+use std::collections::HashMap;
+use std::net::IpAddr;
 
-fn main()
-{
+#[derive(Deserialize, Debug)]
+struct Settings {
+    listen: u32,
+    encryption: String,
+    friends: HashMap<String, Friend>,
+}
 
+#[derive(Deserialize, Debug)]
+struct Friend {
+    ip: IpAddr,
+}
+
+fn main() {
     let settings = Config::builder()
-        .add_source(config::File::with_name("./settings.toml"))
         .add_source(config::Environment::with_prefix("FRIEND"))
+        .add_source(config::File::with_name("./settings.toml"))
         .build()
-        .unwrap();
+        .unwrap()
+        .try_deserialize::<Settings>();
 
-    println!("{:?}", settings.try_deserialize::<HashMap<String, String>>().unwrap());
+    println!("Friend Backup Starting Up...");
+    println!("With Configuration: {:?}", settings);
+
 }
