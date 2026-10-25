@@ -7,6 +7,18 @@
 // - Both sides send `Hello { node }` on connect. Nobody is client/server.
 // - Either side may propose from `Idle`.
 
+// This can be used as below:
+// let friend = Friend::new(1, 2, Message::Hello { node: 2 }) // Idle by default
+// let is_negotiating = Friend::<Negotiating>::from(friend);
+// let is_transferring = Friend::<Transferring>::from(is_negotiating);
+// let is_closed = Friend::<Close>::from(is_transferring);
+//
+// or
+//
+// let friend = Friend::new(1, 2, Message::Hello { node: 2 }) // Idle by default
+// let is_negotiating = Friend::<Negotiating>::from(friend);
+// let is_closed = Friend::<Close>::from(is_negotiating);
+
 use std::{ops::Neg, sync::WaitTimeoutResult};
 
 use serde::{Deserialize, Serialize};
@@ -47,6 +59,16 @@ pub struct Friend<S> {
 // Idle -> Negotiating -> Transferring -> Close -> Idle
 //
 // ToDo: Implement message changes between states.
+
+impl Friend<Idle> {
+    fn new(me: NodeID, them: Option<NodeID>, message: Message) -> Self {
+        Friend {
+            me,
+            them,
+            state: Idle::new(message),
+        }
+    }
+}
 
 struct Idle {
     message: Message,
