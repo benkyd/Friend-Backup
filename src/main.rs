@@ -20,6 +20,6 @@ async fn main() {
 
     // Here we should establish connections to configured peers (and setup retries)
     // Then we should listen for incoming connections ourself, for the client state machine
-    let _ = peers::listen(settings).await;
+    // let _ = peers::listen(settings).await;
 }
 

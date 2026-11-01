@@ -18,6 +18,11 @@ pub enum Features {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Header {}
+
+pub enum SignedHeader {
+
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BlobInfo {
     seq: u64

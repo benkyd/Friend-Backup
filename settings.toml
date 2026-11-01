@@ -1,14 +1,29 @@
 listen = 9090
 encryption = "RSA512"
 
-# [schedule]
-# cronline = "* * * * 3"
+[schedule]
+cron = "0 3 * * *"             # 5-field, UTC
+
+[backup]
+sources    = ["/backup/documents", "/backup/projects", "/backup/pictures"]
+exclude    = ["**/target", "**/node_modules", "**/.cache"]
+encrypt_to  = "age1xxx..."
+zstd_level = 3
 
 [friends]
 
 [friends.one]
-ip = "127.0.0.1"
+id = "iroh_id"
 
-# [[friends.quota]]
-# one="100GB"
+[friends.two]
+id = "iroh_id"
+
+[storage]
+path = "/pathtostoreothers"
+max = "1TB"
+default_grant = 0
+
+[storage.grants]
+one="100GB"
+two="200GB"
 

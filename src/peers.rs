@@ -9,40 +9,40 @@ use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::{TcpSocket, TcpStream}, time
 
 type Peers = Arc<Mutex<HashSet<SocketAddr>>>;
 
-fn sock(settings: &configuration::Settings) -> io::Result<TcpSocket> {
-    let s = TcpSocket::new_v4()?;
-    s.set_reuseaddr(true)?;
-    s.set_reuseport(true)?;
-    s.bind(SocketAddr::from(([0,0,0,0], settings.listen)))?;
-    Ok(s)
-}
-
-pub async fn listen(settings: &configuration::Settings) -> Result<(), Box<dyn Error>> {
-    let peers: Peers = Default::default();
-    let listener = sock(settings)?.listen(1024)?;
-
-    for (peername, peer) in &settings.friends {
-        println!("Dialing {}", peername);
-        let settingsclone = settings.clone();
-        tokio::spawn(dial(settingsclone, peers.clone(), SocketAddr::new(peer.ip, 9090)));
-    }
-
-    loop {
-        let (s, addr) = listener.accept().await?;
-        tokio::spawn(handle(peers.clone(), s, addr));
-    }
-}
-
-async fn dial(settings: &configuration::Settings, peers: Peers, addr: SocketAddr) {
-    loop {
-        if !peers.lock().unwrap().contains(&addr) {
-            if let Ok(s) = async { sock(settings)?.connect(addr).await }.await {
-                handle(peers.clone(), s, addr).await;
-            }
-        }
-        sleep(Duration::from_secs(5)).await;
-    }
-}
+// fn sock(settings: &configuration::Settings) -> io::Result<TcpSocket> {
+//     let s = TcpSocket::new_v4()?;
+//     s.set_reuseaddr(true)?;
+//     s.set_reuseport(true)?;
+//     s.bind(SocketAddr::from(([0,0,0,0], settings.listen)))?;
+//     Ok(s)
+// }
+//
+// pub async fn listen(settings: &configuration::Settings) -> Result<(), Box<dyn Error>> {
+//     let peers: Peers = Default::default();
+//     let listener = sock(settings)?.listen(1024)?;
+//
+//     for (peername, peer) in &settings.friends {
+//         println!("Dialing {}", peername);
+//         let settingsclone = settings.clone();
+//         tokio::spawn(dial(settingsclone, peers.clone(), SocketAddr::new(peer.ip, 9090)));
+//     }
+//
+//     loop {
+//         let (s, addr) = listener.accept().await?;
+//         tokio::spawn(handle(peers.clone(), s, addr));
+//     }
+// }
+//
+// async fn dial(settings: &configuration::Settings, peers: Peers, addr: SocketAddr) {
+//     loop {
+//         if !peers.lock().unwrap().contains(&addr) {
+//             if let Ok(s) = async { sock(settings)?.connect(addr).await }.await {
+//                 handle(peers.clone(), s, addr).await;
+//             }
+//         }
+//         sleep(Duration::from_secs(5)).await;
+//     }
+// }
 
 const PING: u8 = 0;
 const BLOB: u8 = 1;
