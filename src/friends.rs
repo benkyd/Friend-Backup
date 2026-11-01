@@ -1,50 +1,63 @@
 // friends.rs
-// Here we have the sate machine for each friend.
-// The negotiation between friends and client
-// should be a state machine
-
 // P2P
 // - Both sides send `Hello { node }` on connect. Nobody is client/server.
 // - Either side may propose from `Idle`.
 
-use std::{ops::Neg, sync::WaitTimeoutResult};
-
+use blake3;
 use serde::{Deserialize, Serialize};
 
 const DEFAULT_CHUNK_SIZE: u32 = 64 * 1024;
 
 pub type NodeID = [u8; 32];
 
+// upgradable and extendable
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Features {
+    DumbBlob, // replace entire blob every time
+}
 
-#[derive(Debug, Clone, Copy)]
-pub enum Direction {
-    Inbound,
-    Outbound,
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Header {}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BlobInfo {
+    seq: u64
 }
 
 #[derive(Debug)]
 pub enum Proposal {
-    Transfer { dir: Direction },
+    Transfer,
     ChunkSize(u32),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
-    Hello { node: NodeID },
-    Propose { proposal: Proposal },
-    Accept,
-    Reject,
-    Done,
-    Fail,
-    Bye,
-}
+    // Handshake and dial
+    Hello { node: NodeID, features: Vec<Features> },
+    Welcome { node: NodeID, features: Vec<Features> },
 
-#[derive(Debug)]
-pub enum State {
-    Idle,
-    Negotiating { pending: Option<Proposal>, chunk_size: u32 },
-    Transferring { dir: Direction, chunk_size: u32 },
-    Close,
+    // Hi, i would like to backup X GB, do we still have quota for this?
+    // what SORT of backup shall i send you and HOW shall you store it
+    Status,
+    StatusReport { grant: u64, used: u64, blobs: Vec<BlobInfo>},
+
+    Delete { seq: u64 },
+    Deleted { seq: u64, freed: u64 },
+
+    // File transport (over QUINN / QUIC)
+    Offer { header: Header },
+    Accept,
+    Reject { reason: u64 },
+    Done,
+    Stored { blake3: [u8; 32]},
+
+    // Restore backup
+    Fetch { seq: u64 },
+
+    // Data
+    Chunk { size: u64 },
+
+    // Close
+    Bye,
 }
 
 #[derive(Debug)]
@@ -55,56 +68,4 @@ pub enum ProtocolError {
 pub struct Friend {
     me: NodeID,
     them: Option<NodeID>,
-    state: State,
 }
-
-impl Friend {
-    pub fn new(me: NodeID) -> Self {
-        Friend { me, them: None, state: State::Idle }
-    }
-
-    pub fn state(&self) -> &State {
-        &self.state
-    }
-
-    // Idle -> Negotiating -> (Transferring ->) Close -> Idle
-    pub fn step(&mut self, msg: Message) -> Result<(), ProtocolError> {
-        let current = std::mem::replace(&mut self.state, State::Close);
-
-        self.state = match (current, msg) {
-            (State::Idle, Message::Hello { node }) => {
-                self.them = Some(node);
-                State::Negotiating { pending: None, chunk_size: DEFAULT_CHUNK_SIZE }
-            }
-
-            (State::Negotiating { chunk_size, .. }, Message::Propose { proposal }) => {
-                State::Negotiating { pending: Some(proposal), chunk_size }
-            }
-
-            (State::Negotiating { pending: Some(Proposal::Transfer { dir }), chunk_size }, Message::Accept) => {
-                State::Transferring { dir, chunk_size }
-            }
-
-            (State::Negotiating { pending: Some(Proposal::ChunkSize(n)), .. }, Message::Accept) => {
-                State::Negotiating { pending: None, chunk_size: n }
-            }
-
-            (State::Negotiating { .. }, Message::Reject | Message::Fail | Message::Bye) => State::Close,
-
-            (State::Transferring { .. }, Message::Done | Message::Fail) => State::Close,
-
-            (State::Close, Message::Bye) => {
-                self.them = None;
-                State::Idle
-            }
-
-            (state, msg) => {
-                self.state = state;
-                return Err(ProtocolError::Unexpected(msg));
-            }
-        };
-
-        Ok(())
-    }
-}
-

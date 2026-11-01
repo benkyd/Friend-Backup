@@ -1,8 +1,14 @@
 listen = 9090
 encryption = "RSA512"
 
+# [schedule]
+# cronline = "* * * * 3"
+
 [friends]
 
 [friends.one]
 ip = "127.0.0.1"
+
+# [[friends.quota]]
+# one="100GB"
 
