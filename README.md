@@ -17,6 +17,7 @@ Friend Backup runs as a persistant process with cron-like timings that can initi
 ### Identity
 
 Key | Function
+| -- | -- |
 Iroh Secret Key | transport identity
 ed25519 signing key | signs backup headers
 [age](https://github.com/filosottile/age) recipient | encrypt backups
