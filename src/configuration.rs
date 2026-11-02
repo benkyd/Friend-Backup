@@ -1,18 +1,24 @@
+use clap::{Parser, ValueEnum};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::IpAddr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum DebugRole {
     TestReceiver,
-    TestSender
+    TestSender,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Parser)]
+#[command(name = "friend-backup")]
 pub struct SettingsOverride {
-    pub used: bool,
-    pub role: DebugRole,
-    pub ticket: Option<String>
+    /// Debug role while developing the protocol
+    #[arg(long, value_enum)]
+    pub role: Option<DebugRole>,
+
+    /// Receiver's endpoint id (required for test-sender)
+    #[arg(long, required_if_eq("role", "test-sender"))]
+    pub ticket: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -49,4 +55,3 @@ pub struct Storage {
     pub max: String,
     pub grants: HashMap<String, String>,
 }
-

@@ -1,76 +1,79 @@
 // friends.rs
-// P2P
-// - Both sides send `Hello { node }` on connect. Nobody is client/server.
-// - Either side may propose from `Idle`.
 
-use blake3;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-const DEFAULT_CHUNK_SIZE: u32 = 64 * 1024;
+const MAX_FRAME: u32 = 64 * 1024;
 
-pub type NodeID = [u8; 32];
-
-// upgradable and extendable
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Features {
     DumbBlob, // replace entire blob every time
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Header {}
-
-pub enum SignedHeader {
-
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Header {
+    pub version: u16,
+    pub seq: u64,
+    pub size: u64,
+    pub blake3: [u8; 32],
+    pub created: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlobInfo {
-    seq: u64
+    pub seq: u64,
 }
 
-#[derive(Debug)]
-pub enum Proposal {
-    Transfer,
-    ChunkSize(u32),
-}
-
+// postcard encodes variant *index*: append new variants at the end only.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Message {
-    // Handshake and dial
-    Hello { node: NodeID, features: Vec<Features> },
-    Welcome { node: NodeID, features: Vec<Features> },
+    // Handshake
+    Hello { features: Vec<Features> },
+    Welcome { features: Vec<Features> },
 
-    // Hi, i would like to backup X GB, do we still have quota for this?
-    // what SORT of backup shall i send you and HOW shall you store it
+    // Query
     Status,
-    StatusReport { grant: u64, used: u64, blobs: Vec<BlobInfo>},
+    StatusReport { grant: u64, used: u64, blobs: Vec<BlobInfo> },
 
     Delete { seq: u64 },
     Deleted { seq: u64, freed: u64 },
 
-    // File transport (over QUINN / QUIC)
+    // Transfer (data goes on a separate uni stream)
     Offer { header: Header },
     Accept,
     Reject { reason: u64 },
     Done,
-    Stored { blake3: [u8; 32]},
+    Stored { blake3: [u8; 32] },
 
-    // Restore backup
+    // Restore
     Fetch { seq: u64 },
-
-    // Data
-    Chunk { size: u64 },
 
     // Close
     Bye,
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ProtocolError {
+    #[error("unexpected message: {0:?}")]
     Unexpected(Message),
+    #[error("frame too large: {0} bytes (max {MAX_FRAME})")]
+    FrameTooLarge(u32),
 }
 
-pub struct Friend {
-    me: NodeID,
-    them: Option<NodeID>,
+pub async fn send_msg<W: AsyncWrite + Unpin>(w: &mut W, msg: &Message) -> Result<()> {
+    let buf = postcard::to_allocvec(msg)?;
+    w.write_u32(buf.len() as u32).await?;
+    w.write_all(&buf).await?;
+    Ok(())
+}
+
+pub async fn recv_msg<R: AsyncRead + Unpin>(r: &mut R) -> Result<Message> {
+    let len = r.read_u32().await?;
+    if len > MAX_FRAME {
+        return Err(ProtocolError::FrameTooLarge(len).into());
+    }
+    let mut buf = vec![0u8; len as usize];
+    r.read_exact(&mut buf).await?;
+    Ok(postcard::from_bytes(&buf)?)
 }
