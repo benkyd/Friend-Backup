@@ -2,6 +2,19 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::net::IpAddr;
 
+#[derive(Debug)]
+pub enum DebugRole {
+    TestReceiver,
+    TestSender
+}
+
+#[derive(Debug)]
+pub struct SettingsOverride {
+    pub used: bool,
+    pub role: DebugRole,
+    pub ticket: Option<String>
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Settings {
     pub listen: u32,
