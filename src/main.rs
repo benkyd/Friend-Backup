@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     println!("Friend Backup Starting Up...");
     println!("With Configuration: {settings:?}");
 
-    if settings_override.role.is_some() {
+    if settings_override.ticket.is_some() {
         println!("Running with overridden settings: {settings_override:?}");
     }
 

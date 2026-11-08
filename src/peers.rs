@@ -31,7 +31,11 @@ pub enum SessionError {
     Integrity,
 
     #[error("protocol error during {stage}")]
-    Protocol { stage: &'static str, #[source] source: anyhow::Error },
+    Protocol {
+        stage: &'static str,
+        #[source]
+        source: anyhow::Error,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -117,35 +121,26 @@ pub async fn listen(
     settings_override: &configuration::SettingsOverride,
 ) -> Result<()> {
     let endpoint = bind().await?;
+    let router = Router::builder(endpoint.clone())
+        .accept(ALPN, Receiver)
+        .spawn();
 
-    match settings_override.role {
-        Some(DebugRole::TestReceiver) => {
-            let router = Router::builder(endpoint.clone())
-                .accept(ALPN, Receiver)
-                .spawn();
-            tokio::signal::ctrl_c()
-                .await
-                .context("waiting for ctrl-c")?;
-            router.shutdown().await.context("shutting down router")?;
-        }
+    if let Some(ticket) = &settings_override.ticket {
+        println!("> Trying to connect to {}", ticket);
 
-        Some(DebugRole::TestSender) => {
-            let peer: EndpointId = settings_override
-                .ticket
-                .as_deref()
-                .context("--ticket is required for test-sender")?
-                .parse()
-                .context("--ticket is not a valid endpoint id")?;
+        let peer: EndpointId = ticket
+            .parse()
+            .context("--ticket is not a valid endpoint id")?;
 
-            let result = dial(&endpoint, peer).await;
-            endpoint.close().await; // close cleanly on success *and* failure
-            result?;
-        }
-
-        _ => {
-            bail!("No role");
-        }
+        let result = dial(&endpoint, peer).await;
+        endpoint.close().await; // close cleanly on success *and* failure
+        result?;
     }
 
+
+    tokio::signal::ctrl_c()
+        .await
+        .context("waiting for ctrl-c")?;
+    router.shutdown().await.context("shutting down router")?;
     Ok(())
 }

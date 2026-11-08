@@ -12,12 +12,7 @@ pub enum DebugRole {
 #[derive(Debug, Parser)]
 #[command(name = "friend-backup")]
 pub struct SettingsOverride {
-    /// Debug role while developing the protocol
     #[arg(long, value_enum)]
-    pub role: Option<DebugRole>,
-
-    /// Receiver's endpoint id (required for test-sender)
-    #[arg(long, required_if_eq("role", "test-sender"))]
     pub ticket: Option<String>,
 }
 
