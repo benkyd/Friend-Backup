@@ -62,7 +62,7 @@ async fn handle_inbound(conn: &Connection) -> Result<()> {
 
     match recv_msg(&mut recv).await.context("reading Hello")? {
         Message::Hello { features } => {
-            println!("< Hello {features:?}");
+            println!("< Hello from {:?}, features: {:?}", conn.remote_id(), features);
             send_msg(
                 &mut send,
                 &Message::Welcome {

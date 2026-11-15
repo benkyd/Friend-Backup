@@ -20,7 +20,6 @@ async fn main() -> Result<()> {
     let settings_override = configuration::SettingsOverride::parse();
 
     println!("Friend Backup Starting Up...");
-    println!("With Configuration: {settings:?}");
 
     if settings_override.ticket.is_some() {
         println!("Running with overridden settings: {settings_override:?}");
