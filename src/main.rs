@@ -1,6 +1,7 @@
 mod configuration;
 mod friends;
 mod peers;
+mod grants;
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -24,6 +25,8 @@ async fn main() -> Result<()> {
     if settings_override.ticket.is_some() {
         println!("Running with overridden settings: {settings_override:?}");
     }
+
+    let _ = grants::blobs_by_peer( "123", &settings.storage.path);
 
     // Here we should establish connections to configured peers (and setup retries)
     // Then we should listen for incoming connections ourself, for the client state machine

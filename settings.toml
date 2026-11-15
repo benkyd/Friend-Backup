@@ -19,7 +19,7 @@ id = "iroh_id"
 id = "iroh_id"
 
 [storage]
-path = "/pathtostoreothers"
+path = "./test"
 max = "1TB"
 default_grant = 0
 
