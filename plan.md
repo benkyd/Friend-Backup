@@ -1,6 +1,6 @@
 ## Ben roadmap
 [ ] p2p networking
-    [ ] Remove --role and be true p2p with configuration
+    [-] Remove --role and be true p2p with configuration
         [x] temporary connection and persistent listening
             [x] add arg --with-peer <id> for testing
     [ ] for this we need the negotiation (hello, welcome)

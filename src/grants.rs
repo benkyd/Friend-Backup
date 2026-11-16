@@ -25,9 +25,9 @@ use std::fs::{File, OpenOptions, read_dir};
 
 // Extra meta to make it easier to handle locally
 // this is never the blobinfo to send over the net
-pub struct LocalBlobInfo<'a> {
+pub struct LocalBlobInfo {
     internal: BlobInfo,
-    path: &'a std::path::Path,
+    path: std::path::PathBuf,
 }
 
 pub fn blobs_by_peer(peerid: &str, storagepath: &str) -> Result<Vec<LocalBlobInfo>> {
@@ -63,9 +63,6 @@ pub fn blobs_by_peer(peerid: &str, storagepath: &str) -> Result<Vec<LocalBlobInf
 
 pub fn used_grant_of_peer(peerid: &str, storagepath: &str) -> u32 {
     let blobs = blobs_by_peer(peerid, storagepath);
-
-    
-
 
     0
 }
