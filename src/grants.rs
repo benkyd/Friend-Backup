@@ -35,7 +35,7 @@ pub fn blobs_by_peer(peerid: &str, storagepath: &str) -> Result<Vec<LocalBlobInf
 
     let name = peerid.to_owned() + ".";
 
-    let ret = Vec::new();
+    let mut ret = Vec::new();
 
     for entry in it {
         let pathstr = entry
@@ -43,6 +43,8 @@ pub fn blobs_by_peer(peerid: &str, storagepath: &str) -> Result<Vec<LocalBlobInf
             .file_name()
             .into_string()
             .unwrap();
+
+        println!("{:?}", pathstr);
 
         if !pathstr.ends_with(".friend") {
             continue;
@@ -52,17 +54,37 @@ pub fn blobs_by_peer(peerid: &str, storagepath: &str) -> Result<Vec<LocalBlobInf
             continue;
         }
 
-        let sequenceid = pathstr.split(".").nth(1).unwrap();
+        let sequenceid_result = pathstr.split(".").nth(1).unwrap().parse::<u64>();
+        let Ok(sequenceid) = sequenceid_result else {
+            println!("Unexpected sequence id in storage : {:?}", pathstr);
+            continue;
+        };
 
-        println!("peerID {} owns {} sequence {}", peerid, pathstr, sequenceid);
-        
+        let path = std::path::PathBuf::from(pathstr.clone());
+        let pathmeta = path.metadata()?;
+
+        if pathmeta.is_dir() {
+            println!("Unexpected directory in storage : {:?}", pathstr);
+            continue;
+        }
+
+        ret.push(LocalBlobInfo {
+            internal: BlobInfo {
+                seq: sequenceid,
+                size: 0,
+            },
+            path,
+        });
+
+        println!("PeerID {} owns {} sequence {}", peerid, pathstr, sequenceid);
     }
 
     Ok(ret)
 }
 
-pub fn used_grant_of_peer(peerid: &str, storagepath: &str) -> u32 {
-    let blobs = blobs_by_peer(peerid, storagepath);
+pub fn used_grant_of_peer(peerid: &str, storagepath: &str) -> Result<u32> {
+    let _blobs = blobs_by_peer(peerid, storagepath)?;
 
-    0
+
+    Ok(0)
 }

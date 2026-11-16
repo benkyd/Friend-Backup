@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
         println!("Running with overridden settings: {settings_override:?}");
     }
 
-    let _ = grants::blobs_by_peer( "123", &settings.storage.path);
+   let _ = grants::blobs_by_peer( "123", &settings.storage.path);
 
     // Here we should establish connections to configured peers (and setup retries)
     // Then we should listen for incoming connections ourself, for the client state machine

@@ -23,7 +23,7 @@ pub struct Header {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlobInfo {
     pub seq: u64,
-    pub size: u64,
+    pub size: u64, // bytes
 }
 
 // postcard encodes variant *index*: append new variants at the end only.
